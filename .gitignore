@@ -1,0 +1,14 @@
+/node_modules
+/oh_modules
+/build
+/.preview
+/.cxx
+/.test
+*.p12
+*.p7b
+*.cer
+*.jks
+*.csr
+*.pem
+build-profile.json5
+oh-package-lock.json5

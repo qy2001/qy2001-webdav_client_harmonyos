@@ -1,0 +1,12 @@
+{
+  "name": "webdav_client_harmonyos",
+  "version": "1.0.0",
+  "description": "HarmonyOS WebDav client library based on RFC 4918, supports Basic/Bearer/Digest/Custom auth.",
+  "main": "Index.ets",
+  "author": "anthony",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/anthony0906/webdav_client_harmonyos",
+  "keywords": ["webdav", "harmonyos", "arkts", "rcp", "dav"],
+  "dependencies": {
+  }
+}
