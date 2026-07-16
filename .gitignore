@@ -12,3 +12,5 @@
 *.pem
 build-profile.json5
 oh-package-lock.json5
+/.idea/.gitignore
+/.idea/vcs.xml
