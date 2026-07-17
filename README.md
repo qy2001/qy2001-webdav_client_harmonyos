@@ -214,9 +214,59 @@ const connected = await client.checkConnection();
 client.destroy();
 ```
 
-### 集成到其他项目
+## 集成方式
 
-在模块的 `oh-package.json5` 中通过 File 本地路径引入：
+提供三种集成方式，根据项目需求选择。
+
+### 方式一：HSP 子模块集成（源码）
+
+将 `webdav_client_harmonyos` 作为项目子模块，可以直接修改源码，适合需要定制或调试的场景。
+
+**1. 复制模块源码到项目根目录：**
+
+```
+your-project/
+├── entry/
+├── webdav_client_harmonyos/    ← 复制到此处
+│   ├── Index.ets
+│   ├── oh-package.json5
+│   ├── build-profile.json5
+│   ├── hvigorfile.ts
+│   └── src/main/ets/...
+├── build-profile.json5
+└── oh-package.json5
+```
+
+**2. 在根目录 `build-profile.json5` 的 `modules` 中注册子模块：**
+
+```json5
+{
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "webdav_client_harmonyos",
+      "srcPath": "./webdav_client_harmonyos",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    }
+  ]
+}
+```
+
+**3. 在根目录 `oh-package.json5` 中添加 devDependencies：**
+
+```json5
+{
+  "devDependencies": {
+    "webdav_client_harmonyos": "file:./webdav_client_harmonyos"
+  }
+}
+```
+
+**4. 在使用模块的 `oh-package.json5`（如 `entry/oh-package.json5`）中添加依赖：**
 
 ```json5
 {
@@ -226,7 +276,116 @@ client.destroy();
 }
 ```
 
-然后在代码中导入使用：
+**5. 在 `webdav_client_harmonyos/` 目录下创建 `build-profile.json5`：**
+
+```json5
+{
+  "apiType": "stageMode",
+  "buildOption": {},
+  "targets": [
+    {
+      "name": "default",
+      "runtimeOS": "HarmonyOS"
+    }
+  ]
+}
+```
+
+**6. 执行 ohpm 安装依赖：**
+
+```bash
+ohpm install
+```
+
+### 方式二：HAR 包集成
+
+从 [GitHub Releases](https://github.com/qy2001/qy2001-webdav_client_harmonyos/releases) 下载 `webdav_client_harmonyos.har`，无需编译子模块，集成更轻量。
+
+**1. 将 HAR 包放到项目目录（如项目根目录或 `libs/` 目录）：**
+
+```
+your-project/
+├── entry/
+├── libs/
+│   └── webdav_client_harmonyos.har    ← HAR 包
+├── build-profile.json5
+└── oh-package.json5
+```
+
+**2. 在使用模块的 `oh-package.json5`（如 `entry/oh-package.json5`）中添加依赖：**
+
+```json5
+{
+  "dependencies": {
+    "webdav_client_harmonyos": "file:../libs/webdav_client_harmonyos.har"
+  }
+}
+```
+
+**3. 在根目录 `oh-package.json5` 中添加 devDependencies：**
+
+```json5
+{
+  "devDependencies": {
+    "webdav_client_harmonyos": "file:./libs/webdav_client_harmonyos.har"
+  }
+}
+```
+
+**4. 执行 ohpm 安装依赖：**
+
+```bash
+ohpm install
+```
+
+> **注意**：HAR 集成方式不需要在 `build-profile.json5` 的 `modules` 中注册子模块。
+
+### 方式三：HSP 包集成
+
+从 [GitHub Releases](https://github.com/qy2001/qy2001-webdav_client_harmonyos/releases) 下载 `webdav_client_harmonyos-default-signed.hsp`，以预编译 HSP 包方式集成。
+
+**1. 将 HSP 包放到项目目录：**
+
+```
+your-project/
+├── entry/
+├── libs/
+│   └── webdav_client_harmonyos-default-signed.hsp    ← HSP 包
+├── build-profile.json5
+└── oh-package.json5
+```
+
+**2. 在使用模块的 `oh-package.json5` 中添加依赖：**
+
+```json5
+{
+  "dependencies": {
+    "webdav_client_harmonyos": "file:../libs/webdav_client_harmonyos-default-signed.hsp"
+  }
+}
+```
+
+**3. 在根目录 `oh-package.json5` 中添加 devDependencies：**
+
+```json5
+{
+  "devDependencies": {
+    "webdav_client_harmonyos": "file:./libs/webdav_client_harmonyos-default-signed.hsp"
+  }
+}
+```
+
+**4. 执行 ohpm 安装依赖：**
+
+```bash
+ohpm install
+```
+
+> **注意**：HSP 包集成同样不需要在 `build-profile.json5` 的 `modules` 中注册子模块。
+
+### 使用方式
+
+三种集成方式完成后，代码中使用方式相同：
 
 ```typescript
 import { WebDavClient, AuthType } from 'webdav_client_harmonyos';
@@ -367,6 +526,8 @@ webdav_client_harmonyos/src/main/ets/
 │   └── XmlBuilder.ets            # XML 请求体构建
 └── WebDavClient.ets              # 主客户端类
 ```
+
+HAR 和 HSP 包可从 [GitHub Releases](https://github.com/qy2001/qy2001-webdav_client_harmonyos/releases) 下载。
 
 ## 安全说明
 
