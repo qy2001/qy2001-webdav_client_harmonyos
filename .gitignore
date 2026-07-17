@@ -20,5 +20,6 @@
 *.csr
 *.pem
 *.prof
-**/build-profile.json5
+/build-profile.json5
+entry/build-profile.json5
 **/oh-package-lock.json5
