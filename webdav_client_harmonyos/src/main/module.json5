@@ -1,0 +1,13 @@
+{
+  "module": {
+    "name": "webdav_client_harmonyos",
+    "type": "shared",
+    "description": "$string:shared_desc",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1"
+    ],
+    "deliveryWithInstall": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "routerMap": [
+    {
+      "name": "BasicAuthPage",
+      "pageSourceFile": "src/main/ets/pages/BasicAuthPage.ets",
+      "buildFunction": "BasicAuthPageBuilder"
+    },
+    {
+      "name": "BearerAuthPage",
+      "pageSourceFile": "src/main/ets/pages/BearerAuthPage.ets",
+      "buildFunction": "BearerAuthPageBuilder"
+    },
+    {
+      "name": "DigestAuthPage",
+      "pageSourceFile": "src/main/ets/pages/DigestAuthPage.ets",
+      "buildFunction": "DigestAuthPageBuilder"
+    },
+    {
+      "name": "CustomAuthPage",
+      "pageSourceFile": "src/main/ets/pages/CustomAuthPage.ets",
+      "buildFunction": "CustomAuthPageBuilder"
+    }
+  ]
+}

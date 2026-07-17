@@ -1,0 +1,13 @@
+export { WebDavClient } from './src/main/ets/WebDavClient';
+export { WebDavConfig, DefaultWebDavConfig, PartialWebDavConfig } from './src/main/ets/model/WebDavConfig';
+export { AuthType } from './src/main/ets/model/AuthType';
+export { IAuthProvider } from './src/main/ets/auth/IAuthProvider';
+export { BasicAuthProvider } from './src/main/ets/auth/BasicAuthProvider';
+export { BearerAuthProvider } from './src/main/ets/auth/BearerAuthProvider';
+export { DigestAuthProvider } from './src/main/ets/auth/DigestAuthProvider';
+export { CustomAuthProvider } from './src/main/ets/auth/CustomAuthProvider';
+export { WebDavResource } from './src/main/ets/model/WebDavResource';
+export { WebDavResponse } from './src/main/ets/model/WebDavResponse';
+export { RequestOptions } from './src/main/ets/http/HttpClient';
+export { XmlBuilder } from './src/main/ets/utils/XmlBuilder';
+export { XmlParser } from './src/main/ets/parser/XmlParser';
