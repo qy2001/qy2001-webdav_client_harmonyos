@@ -1,4 +1,7 @@
-import { WebDavClient, AuthType, WebDavResource, WebDavResponse } from 'webdav_client_harmonyos';
+import { WebDavClient, AuthType, WebDavResource, WebDavResponse, OnUploadProgress } from 'webdav_client_harmonyos';
+import { picker, fileIo as fs } from '@kit.CoreFileKit';
+import { common } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 @Builder
 export function DigestAuthPageBuilder() {
@@ -18,6 +21,10 @@ struct DigestAuthPage {
   @State resultText: string = '';
   @State isLoading: boolean = false;
   @State fileList: WebDavResource[] = [];
+  @State selectedFileName: string = '';
+  @State uploadProgress: number = -1;
+  private selectedFileURI: string = '';
+  private selectedFileContent: ArrayBuffer | undefined = undefined;
   private client: WebDavClient | undefined = undefined;
 
   build() {
@@ -171,16 +178,46 @@ struct DigestAuthPage {
       .width('100%')
 
       Row({ space: 8 }) {
-        Button('下载文件')
+        Button('选择文件上传')
+          .layoutWeight(1)
+          .backgroundColor('#FF8C00')
+          .enabled(!this.isLoading && this.client !== undefined)
+          .onClick(() => { this.handlePickAndUpload(); })
+        Button('上传文本')
           .layoutWeight(1)
           .enabled(!this.isLoading && this.client !== undefined)
-          .onClick(() => { this.handleGet(); })
-        Button('上传文件')
-          .layoutWeight(1)
-          .enabled(!this.isLoading && this.client !== undefined)
-          .onClick(() => { this.handlePut(); })
+          .onClick(() => { this.handlePutText(); })
       }
       .width('100%')
+
+      if (this.selectedFileName.length > 0) {
+        Column({ space: 8 }) {
+          Row({ space: 8 }) {
+            Text('已选择: ' + this.selectedFileName)
+              .fontSize(13)
+              .fontColor('#333333')
+              .layoutWeight(1)
+            Button('上传')
+              .fontSize(13)
+              .backgroundColor('#FF8C00')
+              .enabled(!this.isLoading && this.client !== undefined)
+              .onClick(() => { this.handleUploadFile(); })
+          }
+          .width('100%')
+          if (this.uploadProgress >= 0) {
+            Progress({ value: this.uploadProgress, total: 100, type: ProgressType.Linear })
+              .width('100%')
+              .color('#FF8C00')
+            Text('上传进度: ' + this.uploadProgress.toString() + '%')
+              .fontSize(12)
+              .fontColor('#666666')
+          }
+        }
+        .width('100%')
+        .padding(8)
+        .backgroundColor('#FFF5E6')
+        .borderRadius(8)
+      }
 
       Button('删除文件')
         .width('100%')
@@ -392,33 +429,121 @@ struct DigestAuthPage {
     this.isLoading = false;
   }
 
-  private async handleGet(): Promise<void> {
-    if (this.client === undefined) return;
-    this.isLoading = true;
-    this.resultText = '正在下载...';
+  private async handlePickAndUpload(): Promise<void> {
     try {
-      const response: WebDavResponse<string> = await this.client.get(this.queryPath);
-      this.resultText = response.isError ?
-        '错误：' + response.statusCode.toString() :
-        '内容：\n' + (response.data ?? '（空）');
+      const context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
+      const documentSelectOptions: picker.DocumentSelectOptions = new picker.DocumentSelectOptions();
+      documentSelectOptions.maxSelectNumber = 1;
+      const docPicker: picker.DocumentViewPicker = new picker.DocumentViewPicker(context);
+      const uris: Array<string> = await docPicker.select(documentSelectOptions);
+      if (uris.length > 0) {
+        this.selectedFileURI = uris[0];
+        const filePath: string = this.uriToPath(uris[0]);
+        const fileName: string = filePath.substring(filePath.lastIndexOf('/') + 1);
+        this.selectedFileName = fileName;
+        const file: fs.File = fs.openSync(uris[0], fs.OpenMode.READ_ONLY);
+        const stat: fs.Stat = fs.statSync(file.fd);
+        const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
+        fs.readSync(file.fd, buffer);
+        fs.closeSync(file);
+        this.selectedFileContent = buffer;
+        this.uploadProgress = -1;
+        this.resultText = '已选择文件: ' + fileName + '\n大小: ' + this.formatSize(buffer.byteLength) + '\n请点击"上传"按钮上传到: ' + this.queryPath;
+      }
     } catch (e) {
-      this.resultText = '错误：' + (e as Error).message;
+      const err: BusinessError = e as BusinessError;
+      this.resultText = '选择文件失败：' + err.message;
+    }
+  }
+
+  private async handleUploadFile(): Promise<void> {
+    if (this.client === undefined) return;
+    if (this.selectedFileContent === undefined || this.selectedFileName.length === 0) {
+      this.resultText = '请先选择文件';
+      return;
+    }
+    this.isLoading = true;
+    this.uploadProgress = 0;
+    this.resultText = '正在上传文件...';
+    try {
+      const remotePath: string = this.buildUploadPath(this.queryPath, this.selectedFileName);
+      const contentType: string = this.guessContentType(this.selectedFileName);
+      const progressCallback: OnUploadProgress = (totalSize: number, transferredSize: number): void => {
+        if (totalSize > 0) {
+          this.uploadProgress = Math.floor(transferredSize / totalSize * 100);
+        }
+      };
+      this.client.setOnUploadProgress(progressCallback);
+      const response: WebDavResponse<void> = await this.client.putBinary(remotePath, this.selectedFileContent, contentType);
+      if (response.isError) {
+        this.resultText = '错误：' + response.statusCode.toString() + ' ' + response.errorMessage;
+        this.uploadProgress = -1;
+      } else {
+        this.resultText = '文件上传成功！\n远程路径: ' + remotePath + '\n大小: ' + this.formatSize(this.selectedFileContent.byteLength);
+        this.uploadProgress = 100;
+        this.selectedFileName = '';
+        this.selectedFileContent = undefined;
+      }
+    } catch (e) {
+      const err: BusinessError = e as BusinessError;
+      this.resultText = '错误：' + err.message;
+      this.uploadProgress = -1;
     }
     this.isLoading = false;
   }
 
-  private async handlePut(): Promise<void> {
+  private async handlePutText(): Promise<void> {
     if (this.client === undefined) return;
     this.isLoading = true;
     this.resultText = '正在上传...';
     try {
       const response: WebDavResponse<void> = await this.client.put(this.queryPath, 'Hello WebDav!', 'text/plain');
       this.resultText = response.isError ?
-        '错误：' + response.statusCode.toString() : '文件上传成功！';
+        '错误：' + response.statusCode.toString() : '文本上传成功！';
     } catch (e) {
       this.resultText = '错误：' + (e as Error).message;
     }
     this.isLoading = false;
+  }
+
+  private uriToPath(uri: string): string {
+    const prefix: string = 'file://';
+    if (uri.startsWith(prefix)) {
+      return uri.substring(prefix.length);
+    }
+    return uri;
+  }
+
+  private buildUploadPath(queryPath: string, fileName: string): string {
+    if (queryPath.endsWith('/')) {
+      return queryPath + fileName;
+    }
+    return queryPath + '/' + fileName;
+  }
+
+  private guessContentType(fileName: string): string {
+    const ext: string = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.txt': 'text/plain',
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'application/javascript',
+      '.json': 'application/json',
+      '.xml': 'application/xml',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.pdf': 'application/pdf',
+      '.zip': 'application/zip',
+      '.mp4': 'video/mp4',
+      '.mp3': 'audio/mpeg',
+    } as Record<string, string>;
+    const result: string | undefined = mimeMap[ext];
+    if (result !== undefined) {
+      return result;
+    }
+    return 'application/octet-stream';
   }
 
   private async handleDelete(): Promise<void> {

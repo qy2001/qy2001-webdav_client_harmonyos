@@ -8,6 +8,6 @@ export { DigestAuthProvider } from './src/main/ets/auth/DigestAuthProvider';
 export { CustomAuthProvider } from './src/main/ets/auth/CustomAuthProvider';
 export { WebDavResource } from './src/main/ets/model/WebDavResource';
 export { WebDavResponse } from './src/main/ets/model/WebDavResponse';
-export { RequestOptions } from './src/main/ets/http/HttpClient';
+export { RequestOptions, OnUploadProgress } from './src/main/ets/http/HttpClient';
 export { XmlBuilder } from './src/main/ets/utils/XmlBuilder';
 export { XmlParser } from './src/main/ets/parser/XmlParser';

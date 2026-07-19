@@ -17,10 +17,14 @@ export interface RequestOptions {
   timeout: number;
 }
 
+export type OnUploadProgress = (totalSize: number, transferredSize: number) => void;
+
 export class HttpClient {
   private session: rcp.Session | undefined = undefined;
+  private uploadSession: rcp.Session | undefined = undefined;
   private config: WebDavConfig;
   private authProvider: IAuthProvider | undefined = undefined;
+  private uploadProgressCallback: OnUploadProgress | undefined = undefined;
 
   constructor(config: WebDavConfig, authProvider: IAuthProvider | undefined) {
     this.config = config;
@@ -110,6 +114,105 @@ export class HttpClient {
       options.headers[keys[i]] = headers[keys[i]];
     }
     return this.request('GET', path, options);
+  }
+
+  async putBinary(path: string, content: ArrayBuffer, contentType: string, headers: Record<string, string>): Promise<WebDavResponse<string>> {
+    if (this.session === undefined) {
+      return WebDavResponse.error<string>(0, 'Session is not initialized');
+    }
+    const fullUrl: string = this.resolveUrl(path);
+    const options: RequestOptions = this.createOptions();
+    options.contentType = contentType;
+    const keys: string[] = Object.keys(headers);
+    for (let i = 0; i < keys.length; i++) {
+      options.headers[keys[i]] = headers[keys[i]];
+    }
+    const mergedHeaders: Record<string, string> = this.buildHeaders(options);
+    const uploadEventHandler: rcp.HttpEventsHandler = {
+      onUploadProgress: (totalSize: number, transferredSize: number) => {
+        if (this.uploadProgressCallback !== undefined) {
+          this.uploadProgressCallback(totalSize, transferredSize);
+        }
+      },
+    };
+    const uploadSessionConfig: rcp.SessionConfiguration = {
+      headers: mergedHeaders as rcp.RequestHeaders,
+      requestConfiguration: {
+        transfer: {
+          autoRedirect: true,
+          timeout: {
+            connectMs: this.config.timeout,
+            transferMs: this.config.timeout,
+          },
+        },
+        tracing: {
+          httpEventsHandler: uploadEventHandler,
+        },
+      },
+    };
+    const uploadSess: rcp.Session = rcp.createSession(uploadSessionConfig);
+    this.uploadSession = uploadSess;
+    const req: rcp.Request = new rcp.Request(fullUrl, 'PUT');
+    req.content = content;
+    if (contentType.length > 0) {
+      req.content = content;
+    }
+    try {
+      const response: rcp.Response = await uploadSess.fetch(req);
+      this.closeUploadSession();
+      if (response.statusCode === 401 && this.authProvider !== undefined &&
+        this.authProvider.getType() === AuthType.DIGEST) {
+        const digestProvider: DigestAuthProvider = this.authProvider as DigestAuthProvider;
+        digestProvider.setUri(fullUrl);
+        digestProvider.handle401(this.extractResponseHeaders(response));
+        const retryHeaders: Record<string, string> = this.buildHeaders(options);
+        const retryEventHandler: rcp.HttpEventsHandler = {
+          onUploadProgress: (totalSize: number, transferredSize: number) => {
+            if (this.uploadProgressCallback !== undefined) {
+              this.uploadProgressCallback(totalSize, transferredSize);
+            }
+          },
+        };
+        const retrySessionConfig: rcp.SessionConfiguration = {
+          headers: retryHeaders as rcp.RequestHeaders,
+          requestConfiguration: {
+            transfer: {
+              autoRedirect: true,
+              timeout: {
+                connectMs: this.config.timeout,
+                transferMs: this.config.timeout,
+              },
+            },
+            tracing: {
+              httpEventsHandler: retryEventHandler,
+            },
+          },
+        };
+        const retrySess: rcp.Session = rcp.createSession(retrySessionConfig);
+        this.uploadSession = retrySess;
+        const retryReq: rcp.Request = new rcp.Request(fullUrl, 'PUT');
+        retryReq.content = content;
+        const retryResponse: rcp.Response = await retrySess.fetch(retryReq);
+        this.closeUploadSession();
+        return this.buildResponse(retryResponse);
+      }
+      return this.buildResponse(response);
+    } catch (e) {
+      this.closeUploadSession();
+      const err: BusinessError = e as BusinessError;
+      return WebDavResponse.error<string>(err.code ?? 0, err.message ?? 'Request failed');
+    }
+  }
+
+  setOnUploadProgress(callback: OnUploadProgress): void {
+    this.uploadProgressCallback = callback;
+  }
+
+  private closeUploadSession(): void {
+    if (this.uploadSession !== undefined) {
+      this.uploadSession.close();
+      this.uploadSession = undefined;
+    }
   }
 
   async put(path: string, body: string, contentType: string, headers: Record<string, string>): Promise<WebDavResponse<string>> {
@@ -213,6 +316,8 @@ export class HttpClient {
       this.session.close();
       this.session = undefined;
     }
+    this.closeUploadSession();
+    this.uploadProgressCallback = undefined;
   }
 
   private buildHeaders(options: RequestOptions | undefined): Record<string, string> {

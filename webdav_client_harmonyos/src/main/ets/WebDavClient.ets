@@ -7,7 +7,7 @@ import { BasicAuthProvider } from './auth/BasicAuthProvider';
 import { BearerAuthProvider } from './auth/BearerAuthProvider';
 import { DigestAuthProvider } from './auth/DigestAuthProvider';
 import { CustomAuthProvider } from './auth/CustomAuthProvider';
-import { HttpClient, RequestOptions } from './http/HttpClient';
+import { HttpClient, RequestOptions, OnUploadProgress } from './http/HttpClient';
 import { XmlParser } from './parser/XmlParser';
 import { XmlBuilder } from './utils/XmlBuilder';
 
@@ -65,6 +65,16 @@ export class WebDavClient {
     const extraHeaders: Record<string, string> = {} as Record<string, string>;
     const rawResponse: WebDavResponse<string> = await this.httpClient.put(path, content, contentType, extraHeaders);
     return this.voidResponse(rawResponse);
+  }
+
+  async putBinary(path: string, content: ArrayBuffer, contentType: string): Promise<WebDavResponse<void>> {
+    const extraHeaders: Record<string, string> = {} as Record<string, string>;
+    const rawResponse: WebDavResponse<string> = await this.httpClient.putBinary(path, content, contentType, extraHeaders);
+    return this.voidResponse(rawResponse);
+  }
+
+  setOnUploadProgress(callback: OnUploadProgress): void {
+    this.httpClient.setOnUploadProgress(callback);
   }
 
   async copy(srcPath: string, destPath: string, overwrite: boolean): Promise<WebDavResponse<void>> {
