@@ -175,7 +175,7 @@ if (!getResp.isError) {
 await client.put('/upload.txt', 'file content', 'text/plain');
 
 // 上传二进制文件 (通过 DocumentViewPicker 选择文件后读取的 ArrayBuffer)
-const content: ArrayBuffer = ...; // 从文件选择器获取
+//const content: ArrayBuffer = ; // 从文件选择器获取
 await client.putBinary('/image.png', content, 'image/png');
 
 // 监听上传进度
